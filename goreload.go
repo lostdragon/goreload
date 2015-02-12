@@ -1,4 +1,4 @@
-package gorelaod
+package goreload
 
 import (
     "fmt"
