@@ -12,6 +12,7 @@ import (
     "net/http"
     "strconv"
     "reflect"
+    "strings"
 )
 
 const (
@@ -28,21 +29,21 @@ func IsErrClosing(err error) bool {
 }
 
 // Allows for us to notice when the connection is closed.
-type conn struct {
+type Conn struct {
     net.Conn
     wg      *sync.WaitGroup
-    isclose bool
+    isClose bool
     lock    sync.Mutex
 }
 
-func (c conn) Close() error {
+func (c *Conn) Close() error {
     log.Printf("close %s", c.RemoteAddr())
     c.lock.Lock()
     defer c.lock.Unlock()
     err := c.Conn.Close()
-    if !c.isclose && err == nil {
+    if !c.isClose && err == nil {
         c.wg.Done()
-        c.isclose = true
+        c.isClose = true
     }
     return err
 }
@@ -64,9 +65,6 @@ var listenerWaitGroup sync.WaitGroup
 // listener object
 var listeners map[uintptr]net.Listener
 
-// extra files file descriptor default entry is 3
-var fd uintptr = 3
-
 func init() {
     listeners = make(map[uintptr]net.Listener)
     path, err := exec.LookPath(os.Args[0])
@@ -74,7 +72,6 @@ func init() {
         log.Fatalf("gracefulRestart: Failed to launch, error: %v", err)
     }
     cmd = exec.Command(path, os.Args[1:]...)
-    cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", Graceful, 1))
     cmd.Stdin = os.Stdin
     cmd.Stdout = os.Stdout
     cmd.Stderr = os.Stderr
@@ -85,8 +82,9 @@ func newStoppable(l net.Listener) (sl *stoppableListener) {
     defer lock.Unlock()
 
     sl = &stoppableListener{Listener: l}
+    v := reflect.ValueOf(l).Elem().FieldByName("fd").Elem()
+    fd := uintptr(v.FieldByName("sysfd").Int())
     listeners[fd] = l
-    fd++
     return
 }
 
@@ -98,7 +96,7 @@ func (sl *stoppableListener) Accept() (c net.Conn, err error) {
     sl.wg.Add(1)
     // Wrap the returned connection, so that we can observe when
     // it is closed.
-    c = conn{Conn: c, wg: &sl.wg}
+    c = &Conn{Conn: c, wg: &sl.wg}
     return
 }
 
@@ -107,12 +105,14 @@ func (sl *stoppableListener) Close() error {
     return sl.Listener.Close()
 }
 
-// 等待信号
+// wait signal and restart service, then close listener, finally wait
 func Wait() {
     waitSignal()
+    lock.Lock()
     for _, listener := range (listeners) {
         listener.Close()
     }
+    lock.Unlock()
     listenerWaitGroup.Wait()
     log.Println("close main process")
 }
@@ -128,25 +128,27 @@ func waitSignal() error {
             case syscall.SIGTERM:
             return nil
             case syscall.SIGHUP:
-            restart()
+            restart(sig)
             return nil
         }
     }
     return nil // It'll never get here.
 }
 
-func restart() {
+func restart(s os.Signal) {
+    lock.Lock()
+    defer lock.Unlock()
+    os.Setenv(Graceful, fmt.Sprintf("%d", s))
+    i := 3
     for fd, listener := range (listeners) {
         // get listener fd
-        cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%d", listener.Addr().String(), fd))
-        v := reflect.ValueOf(listener).Elem().FieldByName("fd").Elem()
-        originFD := uintptr(v.FieldByName("sysfd").Int())
-
+        os.Setenv(listener.Addr().String(), fmt.Sprintf("%d", i))
         // entry i becomes file descriptor 3+i
         cmd.ExtraFiles = append(cmd.ExtraFiles, os.NewFile(
-        originFD,
+        fd,
         listener.Addr().String(),
         ))
+        i++
     }
 
     err := cmd.Start()
@@ -155,10 +157,22 @@ func restart() {
     }
 }
 
+func getFormattedAddr(addr string) string {
+    // If host has colons or a percent sign, have to bracket it.
+    result := strings.IndexByte(addr, ':')
+    if result == 0 {
+        return "0.0.0.0" + addr
+    }
+    return addr
+}
+
 func getInitListener(laddr string) (net.Listener, error) {
     var l net.Listener
     var err error
     listenerWaitGroup.Add(1)
+    // format addr
+    laddr = getFormattedAddr(laddr)
+
     graceful := os.Getenv(Graceful)
     if graceful != "" {
         // get current file descriptor
@@ -167,7 +181,7 @@ func getInitListener(laddr string) (net.Listener, error) {
         if err != nil {
             log.Printf("%s get fd fail: %v", laddr, err)
         }
-        log.Printf("main: Listening to existing file descriptor %v.", currFd)
+        log.Printf("main: %s Listening to existing file descriptor %v.", laddr, currFd)
         f := os.NewFile(uintptr(currFd), "")
         // file listener dup fd
         l, err = net.FileListener(f)
