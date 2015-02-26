@@ -16,6 +16,9 @@ Send `HUP` to a process using `goreload` and it will restart without downtime.
 
 ## Refer
 
-    [https://github.com/rcrowley/goagain](https://github.com/rcrowley/goagain)
-    [http://grisha.org/blog/2014/06/03/graceful-restart-in-golang/](http://grisha.org/blog/2014/06/03/graceful-restart-in-golang/)
-    [https://github.com/mindreframer/golang-stuff/blob/master/github.com/astaxie/beego/reload.go](https://github.com/mindreframer/golang-stuff/blob/master/github.com/astaxie/beego/reload.go)
+[https://github.com/rcrowley/goagain](https://github.com/rcrowley/goagain)
+
+[http://grisha.org/blog/2014/06/03/graceful-restart-in-golang/](http://grisha.org/blog/2014/06/03/graceful-restart-in-golang/)
+
+[https://github.com/mindreframer/golang-stuff/blob/master/github.com/astaxie/beego/reload.go](https://github.com/mindreframer/golang-stuff/blob/master/github.com/astaxie/beego/reload.go)
+
