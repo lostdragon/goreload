@@ -16,5 +16,5 @@ func handler(conn net.Conn) {
 
 func main() {
     log.Println("ospid:"+strconv.Itoa(os.Getpid()))
-    goreload.SingleSocketService("0.0.0.0:59081", handler)
+    goreload.SingleTCPService("0.0.0.0:59081", handler)
 }

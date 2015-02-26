@@ -43,6 +43,6 @@ func main() {
     http.HandleFunc("/", HelloServer)
 
     goreload.HTTPService(":58081", http.DefaultServeMux)
-    goreload.SocketService(":59081", handler)
+    goreload.TCPService(":59081", handler)
     goreload.Wait()
 }
