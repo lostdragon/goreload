@@ -13,6 +13,18 @@ Send `HUP` to a process using `goreload` and it will restart without downtime.
 
     kill -HUP ${pid}
 
+Send `QUIT` to a process using `goreload` and it will graceful shutdown.
+
+    kill -QUIT ${pid}
+
+
+| Signal            | Function              	|
+| ------------------|---------------------------|
+| TERM, INT    	    | Quick shutdown		    |
+| QUIT              | Graceful shutdown     	|
+| KILL              | Halts a stubborn process  |
+| HUP               | Graceful restart        	|
+
 
 ## Refer
 
