@@ -160,9 +160,6 @@ func restart(s os.Signal) {
 }
 
 func getInitListener(laddr string) (net.Listener, error) {
-    lock.Lock()
-    defer lock.Unlock()
-
     var l net.Listener
     var err error
     listenerWaitGroup.Add(1)
@@ -184,10 +181,6 @@ func getInitListener(laddr string) (net.Listener, error) {
     } else {
         log.Printf("listen to %s.", laddr)
         l, err = net.Listen("tcp", laddr)
-    }
-
-    if err != nil {
-        log.Fatalf("start fail: %v", err)
     }
     return l, err
 }
