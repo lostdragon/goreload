@@ -148,9 +148,10 @@ func waitSignal() error {
             case syscall.SIGQUIT:
             gracefulShutdown()
             return nil
-            //HUP	reload
+            //HUP	Graceful restart
             case syscall.SIGHUP:
             restart(sig)
+            gracefulShutdown()
             return nil
         }
     }
